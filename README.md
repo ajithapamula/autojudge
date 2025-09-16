@@ -39,32 +39,23 @@ React/Vite UI (served via FastAPI static mount at /static).
 
 Visual dashboards for scores, verdicts, and repo profiles.
 
-🏗 Architecture
+## 🏗 Architecture
 
-               ┌───────────────────────┐
-               │      Client / UI      │
-               │ React / cURL / API    │
-               └──────────┬────────────┘
-                          │ REST
-                   ┌───────▼────────┐
-                   │    FastAPI     │
-                   │  app/main.py   │
-                   └───────┬────────┘
-         ┌─────────────────┼─────────────────┐
-         │                 │                 │
- ┌───────▼──────┐   ┌──────▼───────┐  ┌──────▼───────┐
- │ Code Agent   │   │ Design Agent │  │ Pitch Agent  │
- │ Heuristics   │   │ Heuristics   │  │ LLM via MCP  │
- └───────┬──────┘   └──────┬───────┘  └──────┬───────┘
-         │                 │                 │
-         └──────────┬──────┴───────┬────────┘
-                    ▼              ▼
-                ┌──────────────────────┐
-                │   Judge Aggregator   │
-                │  (Prompt + Weights)  │
-                └─────────┬────────────┘
-                          ▼
-                   Final Score + Verdict
+```mermaid
+flowchart TD
+    A[Client / UI<br/>React / API / cURL] --> B[FastAPI<br/>app/main.py]
+
+    B --> C1[Code Agent<br/>Heuristics: docs/tests/CI/license/structure]
+    B --> C2[Design Agent<br/>Heuristics: UX, visuals, accessibility]
+    B --> C3[Pitch Agent<br/>LLM via MCP<br/>README / Pitch Deck]
+
+    C1 --> D[Judge Aggregator<br/>(Prompt + Weights)]
+    C2 --> D
+    C3 --> D
+
+    D --> E[Final Score + Verdict<br/>JSON + UI Dashboard]
+
+
 
 ⚡️ Quickstart
 1. Clone repo
