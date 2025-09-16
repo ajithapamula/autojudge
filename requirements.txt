@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic
+httpx
+
+# orchestration
+langchain
+langgraph
+langchain-openai
+
+# MCP client
+mcp>=1.2.0

@@ -1,0 +1,98 @@
+# -----------------
+# Python
+# -----------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual env
+.venv/
+venv/
+ENV/
+env/
+pip-wheel-metadata/
+
+# Byte-compiled / cache
+*.pyo
+*.pyd
+*.pdb
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs & Debug
+*.log
+*.pot
+*.mo
+*.orig
+*.rej
+*.swp
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb
+
+# FastAPI / Uvicorn
+*.db
+*.sqlite3
+
+# Frontend build (if using React/Vite)
+app/frontend/node_modules/
+app/frontend/build/
+app/frontend/dist/
+
+# Environment
+.env
+.env.*
+*.env
+
+# AutoJudge specific
+app/frontend/.cache/
+*.lock
+*.pid
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Backup files
+*.bak
+*.tmp
+*.temp

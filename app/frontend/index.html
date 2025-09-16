@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AutoJudge Dashboard</title>
+  <style>
+    body { font-family: Inter, Arial, sans-serif; margin: 28px; }
+    .row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+    input[type=text] { width: 580px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
+    button { padding: 10px 16px; border: 0; border-radius: 8px; background: #111827; color: white; cursor: pointer; }
+    .card { border: 1px solid #e5e7eb; padding: 16px; margin-top: 16px; border-radius: 12px; background: #fff; }
+    .score { font-size: 22px; font-weight: 600; }
+    .muted { color: #6b7280; font-size: 12px; }
+    .error { background: #FEF2F2; border: 1px solid #FCA5A5; color: #991B1B; padding: 12px; border-radius: 8px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .chip { display: inline-block; background:#F3F4F6; padding: 6px 10px; border-radius: 999px; font-size: 12px;}
+  </style>
+</head>
+<body>
+  <h1>Hackathon Judge</h1>
+  <div class="row">
+    <input id="repo" type="text" placeholder="GitHub repo (owner/repo or URL) e.g. ajithapamula/Edu-App" />
+    <input id="pitch" type="text" placeholder="Pitch URL (optional, README used if empty)" />
+    <button id="go">Score</button>
+  </div>
+  <div class="muted">Tip: If you see 0s, check <a href="/debug/diag" target="_blank">/debug/diag</a> for token/rate limits.</div>
+
+  <div id="out"></div>
+
+  <script>
+    const el = (id) => document.getElementById(id);
+    const out = el("out");
+    el("go").onclick = async () => {
+      out.innerHTML = "Scoring...";
+      const body = {
+        repo_url: el("repo").value.trim(),
+        pitch_url: el("pitch").value.trim() || null
+      };
+      try {
+        const r = await fetch("/score_summary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        const json = await r.json();
+        if (!r.ok) {
+          out.innerHTML = `<div class="error"><b>HTTP ${r.status}</b><br><pre>${JSON.stringify(json, null, 2)}</pre></div>`;
+          return;
+        }
+        const agents = json.agents || {};
+        out.innerHTML = `
+          <div class="card">
+            <div class="score">Final Score: ${json.final_score ?? "NA"}</div>
+            <div>Verdict: <span class="chip">${json.verdict ?? "NA"}</span></div>
+            <div class="grid" style="margin-top:12px;">
+              <div class="card"><b>Code</b><br>${agents.code ?? "NA"}</div>
+              <div class="card"><b>Design</b><br>${agents.design ?? "NA"}</div>
+              <div class="card"><b>Pitch</b><br>${agents.pitch ?? "NA"}</div>
+            </div>
+            <h3>Feedback</h3>
+            <ul>${(json.feedback || []).map(x => `<li>${x}</li>`).join("")}</ul>
+          </div>
+        `;
+      } catch (e) {
+        out.innerHTML = `<div class="error">${e}</div>`;
+      }
+    };
+  </script>
+</body>
+</html>
