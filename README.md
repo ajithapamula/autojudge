@@ -1,9 +1,9 @@
-🚀 Autonomous Hackathon Judge
+## 🚀 Autonomous Hackathon Judge
 
 Multi-Agent Hackathon Scoring System powered by FastAPI, LangChain, and Model Context Protocol (MCP).
 Judges GitHub repos, README pitches, and design heuristics, then aggregates into final scores with actionable feedback.
 
-📌 Features
+## 📌 Features
 
 Multi-Agent Architecture
 
@@ -55,40 +55,43 @@ flowchart TD
 
     D --> E[Final Score + Verdict<br/>JSON + UI Dashboard]
 
+```
 
-
-⚡️ Quickstart
+## ⚡️ Quickstart
+```
 1. Clone repo
 git clone https://github.com/ajithapamula/autojudge.git
 cd autojudge
-
-2. Create venv & install deps
-
+```
+## 2. Create venv & install deps
+```
 python -m venv venv
 venv\Scripts\activate   # Windows
 # or source venv/bin/activate (Linux/Mac)
 
 pip install -r requirements.txt
-
-3. Set environment variables
-
+```
+## 3. Set environment variables
+```
 Create .env:
 
 OPENAI_API_KEY=sk-xxxxx
 GITHUB_TOKEN=ghp_xxxxx       # optional, for higher rate limits
-
-4. Run server
-
+```
+## 4. Run server
+```
 uvicorn app.main:app --reload --port 8080
 
 API docs → http://127.0.0.1:8080/docs
-
-🔥 Example Usage
+```
+## 🔥 Example Usage
+```
 Health check
 curl http://127.0.0.1:8080/health
 # {"ok": true}
-
-Score single repo
+```
+## Score single repo
+```
 curl -X POST "http://127.0.0.1:8080/score" \
      -H "Content-Type: application/json" \
      -d '{"repo_url":"https://github.com/ajithapamula/Edu-App"}'
@@ -97,9 +100,9 @@ Aggregate user profile
 curl -X POST "http://127.0.0.1:8080/score_profile" \
      -H "Content-Type: application/json" \
      -d '{"handle":"ajithapamula","kind":"user","max_repos":5}'
-
-🧩 Project Structure
-
+```
+## 🧩 Project Structure
+```
 app/
  ├── agents/          # Code, Design, Pitch, Judge agents
  ├── utils/           # MCP tools, GitHub client
@@ -108,18 +111,20 @@ app/
  ├── profile.py       # Profile aggregation
  ├── prompt.py        # Judge prompt template
  └── frontend/        # (optional) React/Vite UI
+```
 
-🛠 Development
-
+## 🛠 Development
+```
 Run MCP servers locally
 npx @modelcontextprotocol/server-github
 npx @modelcontextprotocol/server-web
-
-Debug MCP tools
+```
+## Debug MCP tools
+```
 curl http://127.0.0.1:8080/debug/mcp-tools
-
-📊 Roadmap
-
+```
+## 📊 Roadmap
+```
  Improve Pitch agent retry logic
 
  Add CI workflow for scoring self-tests
@@ -129,22 +134,10 @@ curl http://127.0.0.1:8080/debug/mcp-tools
  Persistent scoring DB (Postgres/Redis)
 
  Multi-modal design judging (images/screenshots)
-
- 📊 Roadmap
-
- Improve Pitch agent retry logic
-
- Add CI workflow for scoring self-tests
-
- Frontend dashboard (charts + repo comparisons)
-
- Persistent scoring DB (Postgres/Redis)
-
- Multi-modal design judging (images/screenshots)
-
-
- 🧑‍💻 Contributing
-
+```
+ 
+ ## 🧑‍💻 Contributing
+```
 Fork the repo & create a feature branch.
 
 Ensure tests pass:
@@ -153,4 +146,4 @@ pytest
 
 
 Submit PR with clear description.
-
+```
