@@ -1,178 +1,348 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>AutoJudge Dashboard</title>
-  <style>
-    :root{
-      --bg:#ffffff; --fg:#0f172a; --muted:#6b7280; --card:#fff; --line:#e5e7eb;
-      --chip:#111827; --chip-fg:#fff; --bad:#991B1B; --badbg:#FEF2F2; --badline:#FCA5A5;
-    }
-    *{box-sizing:border-box}
-    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Arial, sans-serif; margin: 28px; color:var(--fg); background:var(--bg); }
-    h1 { margin-bottom: 10px; }
-    .row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: center; margin-bottom: 10px; }
-    input[type=text] { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
-    button { padding: 10px 16px; border: 0; border-radius: 8px; background: var(--chip); color: var(--chip-fg); cursor: pointer; }
-    button[disabled]{opacity:.6; cursor: not-allowed;}
-    .muted { color: var(--muted); font-size: 12px; margin-bottom: 8px;}
-    .card { border: 1px solid var(--line); padding: 16px; margin-top: 16px; border-radius: 12px; background: var(--card); }
-    .score { font-size: 22px; font-weight: 700; }
-    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-    .chip { display: inline-block; background:var(--chip); color:var(--chip-fg); padding: 6px 10px; border-radius: 999px; font-size: 12px;}
-    .error { background: var(--badbg); border: 1px solid var(--badline); color: var(--bad); padding: 12px; border-radius: 8px; white-space: pre-wrap;}
-    details{margin-top:6px;}
-    details > summary{cursor:pointer; font-weight:600;}
-    ul{margin:8px 0 0 18px; padding:0}
-    code { background:#f3f4f6; padding:2px 6px; border-radius:6px; }
-    .kvs{display:grid; grid-template-columns: 140px 1fr; gap:6px; margin-top:8px;}
-    .kv-k{color:var(--muted)}
-  </style>
+<meta charset="utf-8" />
+<title>Autonomous Hackathon Judge</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#121622; --muted:#9aa4b2; --text:#e8eef6;
+    --border:#232a3c; --card:#161b29; --accent:#2b6bff; --accent2:#1d4ed8;
+    --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --chip:#1f2638;
+  }
+  *{ box-sizing:border-box }
+  body{
+    margin:0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto;
+    background:
+      radial-gradient(1200px 800px at 70% -10%, #17203a 0%, rgba(11,13,18,0) 60%),
+      var(--bg);
+    color:var(--text);
+  }
+  .wrap{ max-width:1200px; margin:32px auto; padding:0 18px }
+  header{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px }
+  h1{ font-size:26px; margin:0 }
+  .sub{ color:var(--muted); font-size:12px; margin:4px 0 18px }
+  .row{ display:flex; gap:10px; flex-wrap:wrap }
+  .input{
+    flex:1 1 420px; background:var(--panel); border:1px solid var(--border); color:var(--text);
+    border-radius:12px; padding:12px 14px; outline:none;
+  }
+  .btn{
+    background: linear-gradient(180deg,var(--accent),var(--accent2)); border:0; color:white;
+    padding:12px 18px; border-radius:12px; cursor:pointer; font-weight:700; letter-spacing:.2px;
+  }
+  .btn:disabled{ opacity:.6; cursor:not-allowed }
+  .btn.secondary{ background:#24304c }
+  .toolbar{ display:flex; gap:8px; flex-wrap:wrap }
+  .chip{ background:var(--chip); border:1px solid #2a3349; padding:6px 10px; border-radius:999px; font-size:12px; color:#d2def0 }
+
+  .tabs{ display:flex; gap:8px; margin:18px 0 12px }
+  .tab{ padding:10px 14px; background:var(--panel); border:1px solid var(--border); border-radius:10px; cursor:pointer }
+  .tab.active{ background:var(--accent); color:#fff; border-color:#2b6bff }
+
+  .layout{ display:grid; gap:16px; grid-template-columns: 1fr 340px; align-items:start }
+  @media (max-width: 1024px){ .layout{ grid-template-columns: 1fr } }
+
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px;
+  }
+
+  .summary-card{ display:flex; gap:18px; align-items:center }
+  .gauge{ --v:0; width:170px; aspect-ratio:1; border-radius:50%;
+    background:
+      conic-gradient(#28324b 0 30%, #415a9e 0 60%, #f59e0b 0 80%, #22c55e 0),
+      radial-gradient(circle at 50% 50%, #0d1320 60%, transparent 61%);
+    position:relative; filter: drop-shadow(0 8px 24px rgba(18,22,34,.4));
+  }
+  .needle{ position:absolute; left:50%; top:50%; width:2px; height:46%; background:#dbeaff;
+    transform-origin: bottom center; transform: rotate(calc(-120deg + (var(--v) * 2.4deg))) translate(-50%,-100%);
+    box-shadow:0 0 6px #8db8ff }
+  .center-dot{ position:absolute; left:50%; top:50%; width:10px; height:10px; background:#fff; border-radius:50%;
+    transform:translate(-50%,-50%) }
+
+  .score-xl{ font-size:42px; font-weight:800; letter-spacing:.3px }
+  .muted{ color:var(--muted) }
+  .kvs{ display:flex; gap:10px; flex-wrap:wrap; margin-top:6px }
+
+  .grid-cards{
+    display:grid; gap:14px;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (max-width: 720px){ .grid-cards{ grid-template-columns: 1fr } }
+
+  .square{ min-height:160px }
+  .section-title{ font-weight:700; margin:2px 0 8px }
+  ul.list{ margin:6px 0 0 0; padding-left:18px; line-height:1.5 }
+  ul.list li{ margin:6px 0; white-space: normal; word-break: break-word; }
+
+  .panel{ display:flex; flex-direction:column; gap:12px }
+  .history-list{ display:flex; flex-direction:column; gap:8px; max-height:360px; overflow:auto }
+  .history-item{ padding:10px; border-radius:10px; background:#111726; border:1px solid #20283a; cursor:pointer }
+  .history-item:hover{ background:#1a2236 }
+  .history-title{ font-size:12px; color:#cfe0ff }
+  .history-meta{ font-size:11px; color:#8ea2c8 }
+
+  .error{ background:#220d10; border:1px solid #5c1d25; color:#ffd6db; padding:10px; border-radius:10px }
+  .ok{ color:#8df0b0 } .warn{ color:#ffd48a } .bad{ color:#ff9e9e }
+
+  pre.small{ font-size:12px; background:#0d1320; padding:10px; border-radius:10px; border:1px solid #20283a; overflow:auto }
+  .row-actions{ display:flex; gap:8px; flex-wrap:wrap }
+</style>
 </head>
 <body>
-  <h1>Hackathon Judge</h1>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Hackathon Judge</h1>
+      <div class="sub">Analyze a repo’s code, design, and pitch. Deterministic scoring + LLM feedback.</div>
+    </div>
+    <div class="toolbar">
+      <button class="btn secondary" id="btnDiag">Diagnostics</button>
+      <button class="btn secondary" id="btnClear">Clear History</button>
+    </div>
+  </header>
 
   <div class="row">
-    <input id="repo" type="text" placeholder="GitHub repo (owner/repo or URL) e.g. ajithapamula/Edu-App" />
-    <input id="pitch" type="text" placeholder="Pitch URL (optional, README used if empty)" />
-    <button id="go">Score</button>
+    <input id="repo" class="input" placeholder="GitHub repo URL (e.g. https://github.com/ajithapamula/Edu-App)" />
+    <input id="pitch" class="input" placeholder="Pitch URL (optional, README used if empty)" />
+    <button id="btn" class="btn">Score</button>
+  </div>
+  <div class="sub">If you see 0s, check <code>/debug/diag</code> (OpenAI key & GitHub rate limit).</div>
+
+  <div class="tabs">
+    <div id="tabSummary" class="tab active">Summary</div>
+    <div id="tabFeedback" class="tab">Feedback</div>
+    <div id="tabRaw" class="tab">Raw JSON</div>
   </div>
 
-  <div class="muted">
-    Tip: If you see 0s, check <a href="/debug/diag" target="_blank">/debug/diag</a> for token/rate limits.
+  <div class="layout">
+    <!-- Left: Results -->
+    <div id="result"></div>
+
+    <!-- Right: Side panel (history + diag) -->
+    <aside class="panel">
+      <div class="card">
+        <div class="section-title">History</div>
+        <div id="history" class="history-list"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Diagnostics</div>
+        <div id="diagBox" class="muted">No checks run yet.</div>
+      </div>
+    </aside>
   </div>
 
-  <div id="out"></div>
+  <div style="height:18px"></div>
+</div>
 
-  <script>
-    const el = (id) => document.getElementById(id);
-    const out = el("out");
-    const btn = el("go");
+<script>
+const $ = (s)=>document.querySelector(s);
+const result = $("#result");
+const diagBox = $("#diagBox");
+const historyEl = $("#history");
 
-    // Normalize "owner/repo" or any GitHub URL -> full https repo URL
-    function normalizeRepo(input) {
-      const s = (input || "").trim();
-      if (!s) return s;
-      if (s.startsWith("http://") || s.startsWith("https://")) return s;
-      if (/^[\w.-]+\/[\w.-]+$/.test(s)) return `https://github.com/${s}`;
-      return s; // fallback (let backend reject if invalid)
-    }
+let lastSummary=null, lastDetails=null;
 
-    // Render feedback whether it's a list OR a structured object
-    function renderFeedback(feedback) {
-      if (!feedback) return "<div class='muted'>No feedback.</div>";
+// ------------------------ UI helpers
+function escapeHtml(s){ return String(s??"").replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+function angleFromScore(sc){ const x=Math.max(0,Math.min(100,Number(sc)||0)); return x; } // 0..100 -> % used by CSS
+function loading(){ result.innerHTML = `<div class="card"><div class="row" style="align-items:center"><div class="spinner" style="width:22px;height:22px;border:3px solid #3a4a78;border-top-color:#9bc1ff;border-radius:50%;animation:spin 1s linear infinite"></div><div style="margin-left:10px">Scoring…</div></div></div>`; }
+function showError(e){ result.innerHTML = `<div class="card error"><b>Failed:</b> ${escapeHtml(e?.message || e)}</div>`; }
 
-      // List<string>
-      if (Array.isArray(feedback)) {
-        return `<ul>${feedback.map(x => `<li>${escapeHtml(String(x))}</li>`).join("")}</ul>`;
-      }
+// ------------------------ localStorage history
+const KEY="autojudge_history_v1";
+function saveHistory(item){
+  const arr = loadHistory().filter(x=>x.repo!==item.repo); // dedup by repo
+  arr.unshift({...item, ts:Date.now()});
+  localStorage.setItem(KEY, JSON.stringify(arr.slice(0,20)));
+  renderHistory();
+}
+function loadHistory(){
+  try{ return JSON.parse(localStorage.getItem(KEY)||"[]"); }catch{ return []; }
+}
+function renderHistory(){
+  const arr = loadHistory();
+  if(!arr.length){ historyEl.innerHTML = `<div class="muted">No items yet.</div>`; return; }
+  historyEl.innerHTML = arr.map(x=>`
+    <div class="history-item" data-repo="${escapeHtml(x.repo)}" data-pitch="${escapeHtml(x.pitch||"")}">
+      <div class="history-title">${escapeHtml(x.repo)}</div>
+      <div class="history-meta">Score: ${x.final_score ?? "—"} • ${new Date(x.ts).toLocaleString()}</div>
+    </div>
+  `).join("");
+  historyEl.querySelectorAll(".history-item").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      $("#repo").value = el.dataset.repo; $("#pitch").value = el.dataset.pitch || "";
+      run();
+    });
+  });
+}
+renderHistory();
+$("#btnClear").addEventListener("click", ()=>{ localStorage.removeItem(KEY); renderHistory(); });
 
-      // Object of sections: { code_improvements: [...], ... }
-      if (typeof feedback === "object") {
-        const entries = Object.entries(feedback);
-        if (!entries.length) return "<div class='muted'>No feedback.</div>";
-        return entries.map(([section, items]) => {
-          const title = section.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-          const list = Array.isArray(items) ? items : [];
-          return `
-            <details open>
-              <summary>${escapeHtml(title)}</summary>
-              <ul>${list.map(x => `<li>${escapeHtml(String(x))}</li>`).join("")}</ul>
-            </details>
-          `;
-        }).join("");
-      }
+// ------------------------ tabs
+function setActiveTab(id){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  $(id).classList.add("active");
+}
+$("#tabSummary").addEventListener("click", ()=>{ setActiveTab("#tabSummary"); if(lastSummary) renderSummary(lastSummary); else result.innerHTML=""; });
+$("#tabFeedback").addEventListener("click", ()=>{ setActiveTab("#tabFeedback"); if(lastSummary) renderFeedback(lastSummary); else result.innerHTML=""; });
+$("#tabRaw").addEventListener("click", ()=>{ setActiveTab("#tabRaw"); if(lastDetails) renderRaw(lastDetails); else result.innerHTML="<div class='card muted'>Run a score to see raw details.</div>"; });
 
-      return "<div class='muted'>No feedback.</div>";
-    }
+// ------------------------ exporters
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(lastSummary,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="autojudge.json";a.click();
+}
+function exportMD(){
+  const fb=lastSummary.feedback||{};
+  let md=`# Hackathon Judge Report
+**Repo:** ${lastSummary.repo}
+**Final Score:** ${lastSummary.final_score}
+**Verdict:** ${lastSummary.verdict}
 
-    function escapeHtml(s) {
-      return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-    }
+## Agents
+- Code: ${lastSummary.agents?.code}
+- Design: ${lastSummary.agents?.design}
+- Pitch: ${lastSummary.agents?.pitch}
 
-    function kvGrid(obj) {
-      if (!obj || typeof obj !== "object") return "";
-      return `
+## Feedback
+### Quick Wins
+${(fb.quick_wins||[]).map(x=>`- ${x}`).join("\n")}
+
+### Code Improvements
+${(fb.code_improvements||[]).map(x=>`- ${x}`).join("\n")}
+
+### README Improvements
+${(fb.readme_improvements||[]).map(x=>`- ${x}`).join("\n")}
+
+### Mistakes
+${(fb.mistakes||[]).map(x=>`- ${x}`).join("\n")}
+`;
+  const blob=new Blob([md],{type:"text/markdown"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="autojudge.md";a.click();
+}
+
+// ------------------------ views
+function renderSummary(summary){
+  const agents = summary.agents || {};
+  result.innerHTML = `
+    <div class="card summary-card">
+      <div class="gauge" style="--v:${angleFromScore(summary.final_score)}">
+        <div class="needle"></div><div class="center-dot"></div>
+      </div>
+      <div>
+        <div class="score-xl">${summary.final_score ?? "—"}</div>
         <div class="kvs">
-          ${Object.entries(obj).map(([k,v]) =>
-            `<div class="kv-k">${escapeHtml(k)}</div><div>${escapeHtml(String(v))}</div>`
-          ).join("")}
+          <span class="chip">Verdict: ${escapeHtml(summary.verdict ?? "—")}</span>
+          <span class="chip">Code: ${escapeHtml(agents.code ?? "—")}</span>
+          <span class="chip">Design: ${escapeHtml(agents.design ?? "—")}</span>
+          <span class="chip">Pitch: ${escapeHtml(agents.pitch ?? "—")}</span>
         </div>
-      `;
-    }
+        <div class="row-actions" style="margin-top:10px">
+          <button class="btn secondary" id="btnExportJson">Export JSON</button>
+          <button class="btn secondary" id="btnExportMd">Export Markdown</button>
+        </div>
+      </div>
+    </div>
+  `;
+  $("#btnExportJson").onclick = exportJSON;
+  $("#btnExportMd").onclick = exportMD;
+}
 
-    async function score() {
-      out.innerHTML = "";
-      const repo = normalizeRepo(el("repo").value);
-      const pitch = (el("pitch").value || "").trim() || null;
+function normalizeFeedback(fb){
+  if (!fb) return { quick_wins:[], code_improvements:[], readme_improvements:[], mistakes:[] };
+  if (Array.isArray(fb)) return { quick_wins:fb, code_improvements:[], readme_improvements:[], mistakes:[] };
+  const pick=(k)=>Array.isArray(fb[k])?fb[k]:[];
+  return {
+    quick_wins: pick("quick_wins"),
+    code_improvements: pick("code_improvements"),
+    readme_improvements: pick("readme_improvements"),
+    mistakes: pick("mistakes"),
+  };
+}
 
-      if (!repo) {
-        out.innerHTML = `<div class="error">Please enter a repository (owner/repo or URL).</div>`;
-        return;
-      }
+function renderFeedback(summary){
+  const fb = normalizeFeedback(summary.feedback);
+  function square(title, arr){
+    return `<div class="card square">
+      <div class="section-title">${escapeHtml(title)}</div>
+      ${arr?.length ? `<ul class="list">${arr.map(x=>`<li>${escapeHtml(x)}</li>`).join("")}</ul>` : `<div class="muted">No items.</div>`}
+    </div>`;
+  }
+  result.innerHTML = `
+    <div class="grid-cards">
+      ${square("Quick Wins", fb.quick_wins)}
+      ${square("Code Improvements", fb.code_improvements)}
+      ${square("README Improvements", fb.readme_improvements)}
+      ${square("Mistakes / Risks", fb.mistakes)}
+    </div>
+  `;
+}
 
-      const body = { repo_url: repo, pitch_url: pitch };
+function renderRaw(details){
+  result.innerHTML = `
+    <div class="card"><div class="section-title">Raw Agent Output</div>
+      <pre class="small">${escapeHtml(JSON.stringify(details, null, 2))}</pre>
+    </div>
+  `;
+}
 
-      btn.disabled = true;
-      btn.textContent = "Scoring…";
-      try {
-        const r = await fetch("/score_summary", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
+// ------------------------ data fetchers
+async function fetchJSON(url, body){
+  const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body||{}) });
+  const data = await r.json().catch(()=> ({}));
+  if(!r.ok) throw new Error((data && (data.detail || data.error || data.message)) || `HTTP ${r.status}`);
+  return data;
+}
 
-        // Gracefully handle non-JSON bodies
-        let json;
-        try { json = await r.json(); } catch {
-          const txt = await r.text();
-          throw new Error(`Non-JSON response (HTTP ${r.status}):\n${txt}`);
-        }
+async function run(){
+  const repo = $("#repo").value.trim();
+  const pitch = $("#pitch").value.trim() || null;
+  if(!repo){ alert("Please enter a repo URL"); return; }
+  $("#btn").disabled = true; loading();
+  try{
+    // Summary (deterministic + feedback)
+    const summary = await fetchJSON("/score_summary", { repo_url: repo, pitch_url: pitch });
+    lastSummary = summary;
+    // Best effort details for Raw tab
+    try { lastDetails = await fetchJSON("/score", { repo_url: repo, pitch_url: pitch }); } catch { lastDetails = null; }
 
-        if (!r.ok) {
-          out.innerHTML = `<div class="error"><b>HTTP ${r.status}</b>\n${escapeHtml(JSON.stringify(json, null, 2))}</div>`;
-          return;
-        }
+    // Save history & render
+    saveHistory({ repo, pitch, final_score: summary.final_score });
 
-        const agents = json.agents || {};
-        out.innerHTML = `
-          <div class="card">
-            <div class="score">Final Score: ${json.final_score ?? "NA"}</div>
-            <div>Verdict: <span class="chip">${json.verdict ?? "NA"}</span></div>
+    if ($("#tabFeedback").classList.contains("active")) renderFeedback(summary);
+    else if ($("#tabRaw").classList.contains("active")) renderRaw(lastDetails || {note:"No details available"});
+    else renderSummary(summary);
+  } catch(err){ showError(err) }
+  finally { $("#btn").disabled = false; }
+}
 
-            <div style="margin-top:12px">
-              <b>Repository</b>: <code>${escapeHtml(json.repo || repo)}</code>
-            </div>
+// Diagnostics
+async function runDiag(){
+  diagBox.innerHTML = `Running…`;
+  try{
+    const r = await fetch("/debug/diag");
+    const j = await r.json();
+    const ok = j.openai_key_present ? "<span class='ok'>OK</span>" : "<span class='bad'>Missing</span>";
+    const gh = j.github || {};
+    diagBox.innerHTML = `
+      <div>OpenAI API Key: ${ok}</div>
+      <div>GitHub Rate Limit: ${escapeHtml(gh.remaining ?? "unknown")}</div>
+      ${gh.message ? `<div class="warn">Note: ${escapeHtml(gh.message)}</div>` : ""}
+    `;
+  }catch(e){
+    diagBox.innerHTML = `<div class="error">Diag error: ${escapeHtml(e)}</div>`;
+  }
+}
 
-            <div class="grid" style="margin-top:12px;">
-              <div class="card"><b>Code</b><br>${agents.code ?? "NA"}</div>
-              <div class="card"><b>Design</b><br>${agents.design ?? "NA"}</div>
-              <div class="card"><b>Pitch</b><br>${agents.pitch ?? "NA"}</div>
-            </div>
+// Wire UI
+$("#btn").addEventListener("click", run);
+$("#btnDiag").addEventListener("click", runDiag);
+$("#repo").addEventListener("keydown", e=> e.key==="Enter" && run());
+$("#pitch").addEventListener("keydown", e=> e.key==="Enter" && run());
 
-            <h3 style="margin-top:14px;">Feedback</h3>
-            ${renderFeedback(json.feedback)}
-
-            ${json.parts ? `
-              <details style="margin-top:12px;">
-                <summary>How the final was computed</summary>
-                ${kvGrid({ ...json.parts.reduce((acc,p)=>{acc[`${p.agent} (w ${p.weight}%)`]=p.score; return acc;}, {}), "Final Score": json.final_score })}
-              </details>
-            ` : "" }
-          </div>
-        `;
-      } catch (e) {
-        out.innerHTML = `<div class="error">${escapeHtml(String(e))}</div>`;
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "Score";
-      }
-    }
-
-    el("go").onclick = score;
-    // Enter key convenience
-    el("repo").addEventListener("keydown", (e)=> e.key==="Enter" && score());
-    el("pitch").addEventListener("keydown", (e)=> e.key==="Enter" && score());
-  </script>
+// Default tab state render
+result.innerHTML = `<div class="card muted">Enter a repo and click <b>Score</b> to begin.</div>`;
+</script>
 </body>
 </html>
