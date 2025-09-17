@@ -2,6 +2,10 @@
 import os
 from typing import Optional, Literal, Dict, Any
 
+# --- load .env BEFORE importing anything that reads env vars ---
+from dotenv import load_dotenv
+load_dotenv()  # ensures OPENAI_API_KEY, GITHUB_TOKEN, etc. are available
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, FileResponse
@@ -15,7 +19,7 @@ from app.utils.github_client import _headers  # for /debug/diag
 
 # ------------- App + Graph Engine -------------
 app = FastAPI(title="Autonomous Hackathon Judge")
-engine = build_graph()
+engine = build_graph()  # safe now because .env is loaded above
 
 # ------------- Optional frontend --------------
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend")
@@ -40,7 +44,7 @@ class ProfileRequest(BaseModel):
     max_repos: int = 5
     include_forks: bool = False
 
-# ------------- Global Error Handlers ----------
+# ------------- Error Handlers -----------------
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     try:
@@ -54,19 +58,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
-    # Return a JSON error without indent (older Starlette doesn't support it)
-    return JSONResponse(
-        status_code=500,
-        content={"error": type(exc).__name__, "message": str(exc)},
-    )
+    return JSONResponse(status_code=500, content={"error": type(exc).__name__, "message": str(exc)})
 
 # ------------- Helpers ------------------------
 async def get_score_payload(request: Request) -> Dict[str, Any]:
-    """
-    Accept JSON (preferred) or form-encoded payloads.
-    Also supports query params for quick tests.
-    Returns a plain dict with keys like repo_url / pitch_url.
-    """
+    """Accept JSON, form, or query params."""
     ctype = (request.headers.get("content-type") or "").lower()
     data: Dict[str, Any] = {}
     if "application/json" in ctype:
@@ -81,7 +77,6 @@ async def get_score_payload(request: Request) -> Dict[str, Any]:
         except Exception:
             data = {}
     if not data:
-        # allow quick testing via ?repo_url=...
         data = dict(request.query_params)
     return data
 
@@ -92,33 +87,25 @@ async def health():
 
 @app.post("/score")
 async def score(request: Request):
-    """
-    Full detailed scoring: code + design + pitch + final aggregation.
-    Accepts JSON or form. Requires repo_url; pitch_url optional.
-    """
+    """Full detailed scoring: code + design + pitch + final aggregation."""
     data = await get_score_payload(request)
     repo_url = data.get("repo_url")
     pitch_url = data.get("pitch_url")
     if not repo_url:
         raise HTTPException(422, detail="repo_url is required")
     out = await engine.ainvoke({"repo_url": repo_url, "pitch_url": pitch_url})
-    # out already contains agents + final from the graph
     return JSONResponse(content=out)
 
 @app.post("/score_summary")
 async def score_summary(request: Request):
-    """
-    Human-friendly short version. Accepts JSON or form.
-    If pitch_url missing, README will be used as pitch automatically.
-    """
+    """Human-friendly summary (final score + quick feedback + agent scores)."""
     data = await get_score_payload(request)
     repo_url = data.get("repo_url")
     pitch_url = data.get("pitch_url")
     if not repo_url:
         raise HTTPException(422, detail="repo_url is required")
     out = await engine.ainvoke({"repo_url": repo_url, "pitch_url": pitch_url})
-    final = out.get("final", {})
-    # include light agent scores so you can see why the final is what it is
+    final = out.get("final", {}) or {}
     return JSONResponse(
         content={
             "repo": repo_url,
@@ -135,9 +122,7 @@ async def score_summary(request: Request):
 
 @app.post("/score_profile")
 async def score_profile(payload: ProfileRequest):
-    """
-    Aggregate multiple repos for a user/org and compute code-quality stats.
-    """
+    """Aggregate multiple repos for a user/org and compute code-quality stats."""
     result = await score_profile_fn(
         handle=payload.handle,
         kind=payload.kind,
@@ -148,11 +133,7 @@ async def score_profile(payload: ProfileRequest):
 
 @app.get("/debug/diag")
 async def diag():
-    """
-    Quick diagnostics:
-      - openai_key_present: bool
-      - github: rate limit remaining (if token is set you'll see a higher value)
-    """
+    """Quick diagnostics for OpenAI + GitHub."""
     openai_ok = bool(os.getenv("OPENAI_API_KEY"))
     gh_status = {"ok": None, "remaining": None, "message": None}
     try:
@@ -168,11 +149,14 @@ async def diag():
         gh_status["message"] = f"{type(e).__name__}: {e}"
     return {"openai_key_present": openai_ok, "github": gh_status}
 
+@app.get("/debug/env")
+async def debug_env():
+    """Show which critical env vars are visible (values masked)."""
+    keys = ["OPENAI_API_KEY", "GITHUB_TOKEN", "JUDGE_MODEL", "JUDGE_WEIGHTS"]
+    visible = {k: "***set***" if os.getenv(k) else None for k in keys}
+    return {"env_visible": visible}
+
 @app.post("/debug/echo")
 async def debug_echo(request: Request):
-    """
-    Echo back exactly what the browser/client sent.
-    Helpful when you see 500/422 to confirm payload structure.
-    """
     data = await get_score_payload(request)
     return {"headers": dict(request.headers), "data": data}
