@@ -1,66 +1,126 @@
-import os
-import json
+# app/profile.py
+from __future__ import annotations
+
 import asyncio
-from typing import Dict, Any, List
-from app.utils.mcp_tools import MCPTool
+from typing import Dict, Any, List, Optional
+
+import httpx
+
 from app.agents.code_agent import score_code_quality
+from app.utils.github_client import _headers  # reuse your GitHub auth headers
 
-list_user = MCPTool(
-    name="github_list_user",
-    description="List user repos via MCP GitHub server",
-    cmd=os.getenv("MCP_GITHUB_CMD", "npx"),
-    spawn_args=os.getenv("MCP_GITHUB_ARGS", "@modelcontextprotocol/server-github"),
-    tool_name=os.getenv("MCP_GITHUB_LIST_USER_TOOL", "github.list_user_repos"),
-)
 
-list_org = MCPTool(
-    name="github_list_org",
-    description="List org repos via MCP GitHub server",
-    cmd=os.getenv("MCP_GITHUB_CMD", "npx"),
-    spawn_args=os.getenv("MCP_GITHUB_ARGS", "@modelcontextprotocol/server-github"),
-    tool_name=os.getenv("MCP_GITHUB_LIST_ORG_TOOL", "github.list_org_repos"),
-)
+async def _fetch_repos(handle: str, kind: str = "user") -> List[Dict[str, Any]]:
+    """
+    Fetch public repos for a user or org via GitHub REST.
+    Returns the raw repo objects (we only use a few fields).
+    """
+    base = "https://api.github.com"
+    path = f"/users/{handle}/repos" if kind == "user" else f"/orgs/{handle}/repos"
+    repos: List[Dict[str, Any]] = []
 
-async def _parse_repos(raw: str) -> List[Dict[str, Any]]:
-    try:
-        data = json.loads(raw)
-        if isinstance(data, dict) and "repos" in data:
-            return data["repos"]
-        if isinstance(data, list):
-            return data
-    except Exception:
-        pass
-    return []
+    # Grab up to 300 repos in 3 pages (100 per page)
+    async with httpx.AsyncClient(timeout=15) as client:
+        for page in (1, 2, 3):
+            r = await client.get(
+                f"{base}{path}",
+                params={"per_page": 100, "page": page, "sort": "updated"},
+                headers=_headers(),
+            )
+            if r.status_code != 200:
+                # bubble up a helpful message
+                msg = r.json().get("message") if r.headers.get("content-type", "").startswith("application/json") else r.text
+                raise RuntimeError(f"GitHub API error {r.status_code}: {msg}")
+            batch = r.json()
+            if not isinstance(batch, list) or not batch:
+                break
+            repos.extend(batch)
+            if len(batch) < 100:
+                break
+    return repos
 
-def _select(repos: List[Dict[str, Any]], include_forks: bool, max_repos: int) -> List[Dict[str, Any]]:
-    items = [r for r in repos if include_forks or not r.get("fork")]
-    items.sort(key=lambda r: (r.get("stargazers_count", 0), r.get("updated_at", "")), reverse=True)
-    return items[:max_repos]
 
-async def score_profile_mcp(handle: str, kind: str = "user", max_repos: int = 20, include_forks: bool = False) -> Dict[str, Any]:
-    raw = await (list_org.arun(handle) if kind == "org" else list_user.arun(handle))
-    repos = await _parse_repos(raw)
-    sel = _select(repos, include_forks, max_repos)
+def _repo_display(rec: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "name": rec.get("name"),
+        "url": rec.get("html_url"),
+        "stars": rec.get("stargazers_count", 0),
+        "updated_at": rec.get("updated_at"),
+        "fork": bool(rec.get("fork")),
+    }
 
-    async def one(r: Dict[str, Any]):
-        url = r.get("html_url") or f"https://github.com/{r.get('full_name')}"
-        res = await score_code_quality(url)
-        return {
-            "name": r.get("name"),
-            "url": url,
-            "score": res.get("score", 0),
-            "stars": r.get("stargazers_count", 0),
-            "updated_at": r.get("updated_at"),
-            "fork": r.get("fork", False),
-        }
 
-    results = await asyncio.gather(*[one(r) for r in sel])
-    scores = sorted([x["score"] for x in results], reverse=True)
-    if scores:
-        avg = round(sum(scores) / len(scores), 2)
-        median = round(scores[len(scores)//2] if len(scores)%2==1 else (scores[len(scores)//2-1]+scores[len(scores)//2]) / 2, 2)
-    else:
-        avg = median = 0.0
-    top = sorted(results, key=lambda x: x["score"], reverse=True)[:5]
+def _median(nums: List[float]) -> float:
+    if not nums:
+        return 0.0
+    xs = sorted(nums)
+    n = len(xs)
+    mid = n // 2
+    if n % 2 == 1:
+        return float(xs[mid])
+    return round((xs[mid - 1] + xs[mid]) / 2.0, 2)
 
-    return {"handle": handle, "kind": kind, "count": len(results), "results": results, "summary": {"avg": avg, "median": median, "top": top}}
+
+async def score_profile(
+    handle: str,
+    kind: str = "user",
+    max_repos: int = 5,
+    include_forks: bool = False,
+) -> Dict[str, Any]:
+    """
+    Fetch the user's/org's repos, select the most recently updated,
+    run the code quality scorer on each, and aggregate.
+    """
+    # 1) fetch repos
+    all_repos = await _fetch_repos(handle, kind)
+    # 2) filter forks if requested
+    if not include_forks:
+        all_repos = [r for r in all_repos if not r.get("fork")]
+    # 3) sort by updated_at desc and take top N
+    all_repos.sort(key=lambda r: r.get("updated_at") or "", reverse=True)
+    chosen = all_repos[: max(1, max_repos)]
+
+    # 4) score concurrently
+    async def _score_one(rec: Dict[str, Any]) -> Dict[str, Any]:
+        display = _repo_display(rec)
+        repo_url = display["url"]
+        try:
+            sc = await score_code_quality(repo_url)
+            return {
+                **display,
+                "score": sc.get("score", 0),
+                "subscores": sc.get("subscores", {}),
+                "rationale": sc.get("rationale", ""),
+            }
+        except Exception as e:
+            # keep the list robust even if a repo errors
+            return {
+                **display,
+                "score": 0,
+                "subscores": {},
+                "rationale": f"scoring error: {type(e).__name__}: {e}",
+            }
+
+    results = await asyncio.gather(*[_score_one(r) for r in chosen])
+
+    # 5) summary stats
+    scores = [float(r.get("score") or 0) for r in results if isinstance(r.get("score"), (int, float))]
+    avg = round(sum(scores) / len(scores), 2) if scores else 0.0
+    med = _median(scores)
+
+    # normalize output shape your frontend already expects
+    return {
+        "handle": handle,
+        "kind": kind,
+        "count": len(results),
+        "results": results,
+        "summary": {
+            "avg": avg,
+            "median": med,
+            "top": sorted(
+                [{"name": r["name"], "url": r["url"], "score": r["score"]} for r in results],
+                key=lambda x: x["score"],
+                reverse=True,
+            ),
+        },
+    }
