@@ -41,19 +41,20 @@ Visual dashboards for scores, verdicts, and repo profiles.
 
 ## 🏗 Architecture
 
-```mermaid
 flowchart TD
-    A[Client / UI<br/>React / API / cURL] --> B[FastAPI<br/>app/main.py]
 
-    B --> C1[Code Agent<br/>Heuristics: docs/tests/CI/license/structure]
-    B --> C2[Design Agent<br/>Heuristics: UX, visuals, accessibility]
-    B --> C3[Pitch Agent<br/>LLM via MCP<br/>README / Pitch Deck]
+  A["Client / UI\nReact / API / cURL"] --> B["FastAPI\napp/main.py"]
 
-    C1 --> D[Judge Aggregator<br/>(Prompt + Weights)]
-    C2 --> D
-    C3 --> D
+  B --> C1["Code Agent\nHeuristics: docs/tests/CI/license/structure"]
+  B --> C2["Design Agent\nHeuristics: UX, visuals, accessibility"]
+  B --> C3["Pitch Agent\nLLM (README / Pitch Deck)"]
 
-    D --> E[Final Score + Verdict<br/>JSON + UI Dashboard]
+  C1 --> D["Judge Aggregator\n(Prompt + Weights)"]
+  C2 --> D
+  C3 --> D
+
+  D --> E["Final Score + Verdict\nJSON + UI Dashboard"]
+
 
 ```
 
