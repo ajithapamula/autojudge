@@ -147,3 +147,9 @@ pytest
 
 Submit PR with clear description.
 ```
+<p align="center">
+  <img src="assets/C:\Users\admin\Desktop\autojudge\assets\Screenshot 2025-09-17 174201.png" alt="Hackathon Judge Logo" width="120" />
+</p>
+
+# Hackathon Judge
+Analyze a repo’s code, design, and pitch. Deterministic scoring + LLM feedback.
