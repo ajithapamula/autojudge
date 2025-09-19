@@ -42,7 +42,7 @@ Visual dashboards for scores, verdicts, and repo profiles.
 ## 🏗 Architecture
 
 flowchart TD
-
+```
   A["Client / UI\nReact / API / cURL"] --> B["FastAPI\napp/main.py"]
 
   B --> C1["Code Agent\nHeuristics: docs/tests/CI/license/structure"]
